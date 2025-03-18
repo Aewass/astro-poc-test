@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Add custom styles */
+@layer components {
+  .container {
+    @apply px-4 mx-auto max-w-7xl;
+    width: 100%;
+  }
+}
+
+/* Fix for horizontal scrolling */
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+/* Add any custom styles below */

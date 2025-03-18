@@ -1,0 +1,303 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { fetchAPI, getStrapiMedia, getAllBlogPosts } from '../../lib/strapi';
+
+// This function is required for dynamic routes in Astro
+export async function getStaticPaths() {
+  try {
+    const allPosts = await getAllBlogPosts(100);
+    
+    // Filter for podcast posts
+    const podcastPosts = allPosts.filter(post => {
+      const category = post.category;
+      return category && category.Slug === 'podcast-post';
+    });
+    
+    // If no podcast posts with category, try to identify by title/content
+    let finalPodcasts = podcastPosts;
+    
+    if (podcastPosts.length === 0) {
+      const possiblePodcasts = allPosts.filter(post => {
+        const title = post.Title || '';
+        const summary = post.Summary || '';
+        return title.toLowerCase().includes('podcast') || 
+               title.toLowerCase().includes('episode') ||
+               summary.toLowerCase().includes('podcast') ||
+               summary.toLowerCase().includes('episode');
+      });
+      
+      finalPodcasts = possiblePodcasts;
+    }
+    
+    return finalPodcasts.map(podcast => ({
+      params: { slug: podcast.Slug },
+      props: { podcast }
+    }));
+  } catch (error) {
+    console.error("Error generating podcast paths:", error);
+    return [];
+  }
+}
+
+const { podcast } = Astro.props;
+
+// Helper functions
+function getImageUrl(podcast) {
+  if (podcast?.Cover) {
+    return getStrapiMedia(podcast.Cover);
+  }
+  return 'https://placehold.co/1200x600/001133/0088ff?text=No+Image';
+}
+
+function getGuests(podcast) {
+  // For now, we'll extract guest names from the author field
+  if (podcast?.author && podcast.author.Name) {
+    return [podcast.author.Name];
+  }
+  
+  return [];
+}
+
+function getDate(podcast) {
+  if (podcast?.PublishedDate) {
+    try {
+      const date = new Date(podcast.PublishedDate);
+      return date.toLocaleDateString('en-US', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch (e) {
+      return 'Unknown date';
+    }
+  }
+  return 'Unknown date';
+}
+
+// Function to extract YouTube video ID from a URL
+function getYoutubeId(url) {
+  if (!url) return null;
+  
+  // Try to match YouTube URL patterns
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  
+  return (match && match[2].length === 11) ? match[2] : null;
+}
+
+// Function to render content blocks
+function renderContentBlocks(blocks) {
+  if (!blocks) return '';
+  
+  if (typeof blocks === 'string') {
+    return blocks;
+  }
+  
+  // If it's already parsed as an object
+  let content = '';
+  
+  if (Array.isArray(blocks)) {
+    blocks.forEach(block => {
+      if (block.type === 'paragraph') {
+        content += '<div class="mb-6">';
+        if (block.children && Array.isArray(block.children)) {
+          block.children.forEach(child => {
+            if (child.type === 'text') {
+              content += `<p>${child.text}</p>`;
+            }
+          });
+        }
+        content += '</div>';
+      } else if (block.type === 'heading') {
+        const level = block.level || 2;
+        content += `<h${level} class="text-2xl font-bold mb-4 mt-8">`;
+        if (block.children && Array.isArray(block.children)) {
+          block.children.forEach(child => {
+            if (child.type === 'text') {
+              content += child.text;
+            }
+          });
+        }
+        content += `</h${level}>`;
+      } else if (block.type === 'image' && block.image) {
+        content += `<div class="my-8">
+          <img src="${getStrapiMedia(block.image)}" alt="${block.caption || ''}" class="w-full rounded-lg">
+          ${block.caption ? `<p class="text-sm text-gray-600 mt-2">${block.caption}</p>` : ''}
+        </div>`;
+      } else if (block.type === 'code') {
+        content += `<pre class="bg-gray-100 p-4 rounded-lg overflow-x-auto my-6"><code>${block.code || ''}</code></pre>`;
+      } else if (block.type === 'quote') {
+        content += `<blockquote class="border-l-4 border-gray-300 pl-4 italic my-6">`;
+        if (block.children && Array.isArray(block.children)) {
+          block.children.forEach(child => {
+            if (child.type === 'text') {
+              content += `<p>${child.text}</p>`;
+            }
+          });
+        }
+        content += `</blockquote>`;
+      }
+    });
+  } else if (typeof blocks === 'object') {
+    // Try to handle the format shown in your example
+    Object.keys(blocks).forEach(key => {
+      const block = blocks[key];
+      if (block.type === 'paragraph' && block.children) {
+        block.children.forEach(child => {
+          if (child.type === 'text' && child.text) {
+            content += `<p class="mb-4">${child.text}</p>`;
+          }
+        });
+      }
+    });
+  }
+  
+  return content || JSON.stringify(blocks);
+}
+
+// Check if Link is a YouTube URL
+const youtubeId = podcast?.Link ? getYoutubeId(podcast.Link) : null;
+---
+
+<Layout title={podcast ? `${podcast.Title} | Evoila Podcast` : "Podcast | Evoila"}>
+  <div class="pt-24 pb-16">
+    {!podcast ? (
+      <div class="container mx-auto px-6 py-16 text-center">
+        <h1 class="text-3xl font-bold text-red-600 mb-4">Podcast not found</h1>
+        <p class="mb-8">The podcast episode you're looking for could not be found.</p>
+        <a href="/#podcasts" class="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition-colors">
+          Back to Podcasts
+        </a>
+      </div>
+    ) : (
+      <div class="container mx-auto px-6">
+        <div class="max-w-4xl mx-auto">
+          <h1 class="text-4xl md:text-5xl font-bold mb-6 text-gray-900">{podcast?.Title}</h1>
+          
+          <div class="flex items-center text-gray-600 mb-8">
+            <span>Episode • </span>
+            <span class="ml-2">{getDate(podcast)}</span>
+          </div>
+          
+          {/* YouTube Video Embed (if Link is a YouTube URL) */}
+          {youtubeId ? (
+            <div class="mb-10 aspect-w-16 aspect-h-9">
+              <iframe 
+                src={`https://www.youtube.com/embed/${youtubeId}`}
+                title={podcast.Title}
+                frameborder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen
+                class="w-full h-96 rounded-lg"
+              ></iframe>
+            </div>
+          ) : (
+            podcast?.Cover && (
+              <div class="mb-10">
+                <img 
+                  src={getImageUrl(podcast)} 
+                  alt={podcast.Title} 
+                  class="w-full h-auto rounded-lg"
+                />
+              </div>
+            )
+          )}
+          
+          {getGuests(podcast).length > 0 && (
+            <div class="mb-8">
+              <h2 class="text-xl font-semibold mb-3">Guests</h2>
+              <div class="flex flex-wrap gap-2">
+                {getGuests(podcast).map(guest => (
+                  <span class="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-700">
+                    {guest}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          <div class="prose prose-lg max-w-none">
+            {podcast?.Summary && (
+              <div class="text-xl text-gray-700 mb-8 font-medium">
+                {podcast.Summary}
+              </div>
+            )}
+            
+            <div class="podcast-content">
+              {podcast?.Content ? (
+                <Fragment set:html={renderContentBlocks(podcast.Content)} />
+              ) : (
+                <p>No content available for this podcast episode.</p>
+              )}
+            </div>
+          </div>
+          
+          {/* External Link (if not YouTube) */}
+          {podcast?.Link && !youtubeId && (
+            <div class="mt-8 p-6 bg-gray-50 rounded-lg">
+              <h3 class="text-lg font-semibold mb-3">Listen to this episode</h3>
+              <a 
+                href={podcast.Link} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                class="inline-flex items-center text-blue-600 hover:underline"
+              >
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 0C4.477 0 0 4.477 0 10c0 5.523 4.477 10 10 10 5.523 0 10-4.477 10-10C20 4.477 15.523 0 10 0zm0 18c-4.418 0-8-3.582-8-8s3.582-8 8-8 8 3.582 8 8-3.582 8-8 8zm-1-13v8l6-4-6-4z"/>
+                </svg>
+                Listen on external platform
+              </a>
+            </div>
+          )}
+          
+          <div class="mt-12 pt-8 border-t border-gray-200">
+            <a href="/#podcasts" class="text-blue-600 hover:underline flex items-center">
+              <svg class="w-4 h-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+              </svg>
+              Back to all podcasts
+            </a>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+</Layout>
+
+<style>
+  .podcast-content {
+    line-height: 1.8;
+  }
+  
+  .podcast-content h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+  
+  .podcast-content h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-top: 1.75rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .podcast-content p {
+    margin-bottom: 1.25rem;
+  }
+  
+  /* Responsive video container */
+  .aspect-w-16 {
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+  }
+  
+  .aspect-w-16 iframe {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+  }
+</style> 

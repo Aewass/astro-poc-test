@@ -1,0 +1,15 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ConsultationSection from '../components/ConsultationSection.svelte';
+import ServicesSection from '../components/ServicesSection.svelte';
+import PartnersSection from '../components/PartnersSection.svelte';
+import BlogSection from '../components/BlogSection.svelte';
+import PodcastsSection from '../components/PodcastsSection.svelte';
+---
+
+<Layout title="Engineering IT | Evoila">
+  <ConsultationSection client:visible />
+  <ServicesSection client:visible />
+  <BlogSection client:visible />
+  <PodcastsSection client:visible />
+</Layout>
