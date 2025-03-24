@@ -1,17 +1,4 @@
 {
-  "version": 2,
   "buildCommand": "astro build",
-  "outputDirectory": "dist",
-  "framework": "astro",
-  "installCommand": "npm install",
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "buildCommand": "astro build",
-        "outputDirectory": "dist"
-      }
-    }
-  ]
+  "outputDirectory": "dist"
 }
