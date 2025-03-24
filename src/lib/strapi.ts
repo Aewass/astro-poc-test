@@ -1,4 +1,6 @@
-const STRAPI_URL = import.meta.env.PUBLIC_STRAPI_URL || "http://localhost:1337";
+const STRAPI_URL =
+  import.meta.env.PUBLIC_STRAPI_DOMAIN || "http://localhost:1337";
+const STRAPI_TOKEN = import.meta.env.PUBLIC_STRAPI_API_TOKEN;
 
 export async function fetchAPI(endpoint: string, locale = "en") {
   const url = `${STRAPI_URL}/api/${endpoint}${
@@ -6,7 +8,11 @@ export async function fetchAPI(endpoint: string, locale = "en") {
   }locale=${locale}`;
 
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${STRAPI_TOKEN}`,
+      },
+    });
 
     if (!response.ok) {
       throw new Error(`Error fetching from Strapi: ${response.statusText}`);

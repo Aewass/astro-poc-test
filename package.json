@@ -3,14 +3,10 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
-    "build": "npm run build:backend && npm run build:frontend",
+    "dev": "astro dev",
+    "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro",
-    "dev:frontend": "astro dev",
-    "dev:backend": "cd strapi-backend && npm run develop",
-    "build:frontend": "astro build",
-    "build:backend": "cd strapi-backend && npm run build"
+    "astro": "astro"
   },
   "dependencies": {
     "@astrojs/svelte": "^5.0.3",
